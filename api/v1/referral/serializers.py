@@ -14,5 +14,6 @@ class ListRegisterSerializer(serializers.ModelSerializer):
             'name',
             'email',
             'referral_code',
+            'timestamp',
         )
    

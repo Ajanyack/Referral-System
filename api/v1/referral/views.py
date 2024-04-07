@@ -13,6 +13,7 @@ from general.decorators import group_required
 from general.functions import generate_serializer_errors,randomnumber,check_username
 from api.v1.referral.serializers import *
 from django.conf import settings
+from django.core.paginator import Paginator,EmptyPage,PageNotAnInteger
 
 from django.template.loader import get_template
 from django.contrib.auth.models import User,Group
@@ -20,6 +21,7 @@ import requests
 import json
 
 
+# User Registration Endpoint.
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -130,7 +132,7 @@ def register_user(request):
     return Response({'app_data': response_data}, status=status.HTTP_200_OK)
 
 
-
+# User Details EndPoint
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -173,7 +175,7 @@ def view_details(request,pk):
 
     return Response({'app_data': response_data}, status=status.HTTP_200_OK)
 
-
+# Referrals endpoint
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -190,11 +192,45 @@ def view_referral_data(request,pk):
                 },
                 many = True
             ).data
+            page_number = request.GET.get("page") 
+            items_per_page = 20
+            paginator = Paginator(serialized_data, items_per_page)
+            try:
+                page_obj = paginator.page(page_number)
+                response_data = {
+                    "StatusCode": 6000,
+                    "data": {
+                            'count': paginator.count,
+                            'num_pages': paginator.num_pages,
+                            'page_number': page_number,
+                            'results': page_obj.object_list,
+                            }
+                            }
+  
+            except EmptyPage:
+                instances = paginator.page(1)
+                response_data = {
+                    "StatusCode": 6000,
+                    "data": {
+                            'count': paginator.count,
+                            'num_pages': paginator.num_pages,
+                            'page_number':1,
+                            'results':   instances.object_list
+                    
+                }
+                }
+            except PageNotAnInteger:
+                instances= paginator.page(1)
+                response_data = {
+                    "StatusCode": 6000,
+                    "data": {
+                            'count': paginator.count,
+                            'num_pages': paginator.num_pages,
+                            'page_number':1,
+                            'results':   instances.object_list
+                    }
+                }
 
-            response_data = {
-                "StatusCode" : 6000,
-                "data" : serialized_data
-            }
         else:
             response_data = {
                 "StatusCode" : 6001,
