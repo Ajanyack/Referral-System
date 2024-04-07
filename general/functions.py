@@ -1,4 +1,12 @@
-from referral.models import *
+from django.db.models import *
+from random import randint
+from django.contrib.auth.models import User
+
+import random
+import string
+from django.conf import settings
+
+
 
 def generate_serializer_errors(args):
     message = ""
@@ -12,16 +20,24 @@ def generate_serializer_errors(args):
         message += f"{key} - {error_message} | "
     return message[:-3]
 
-def get_auto_id(model):
-    auto_id = 1
-    latest_auto_id =  model.objects.all().order_by("-date_added")[:1]
-    if latest_auto_id:
-        for auto in latest_auto_id:
-            auto_id = auto.auto_id + 1
-    return auto_id
 
-def get_order_id(model):
-    testimonials = model.objects.all()
-    for index, testimonial in enumerate(testimonials):
-        testimonial.order = index + 1
-        testimonial.save()
+def randomnumber(n):
+    range_start = 10**(n-1)
+    range_end = (10**n)-1
+
+    return randint(range_start, range_end)
+
+
+def check_username(username):
+    old_username = username
+    if User.objects.filter(Q(username__icontains=username)).exists():
+        print(username, "========old===========")
+        sliced_phone = username[3:7]
+        new_random_number = randomnumber(4)
+        new_username = f'EZG{sliced_phone}{new_random_number}'
+        print(new_username, "========new===========")
+        check_username(new_username)
+        return new_username
+    else:
+        return old_username
+    

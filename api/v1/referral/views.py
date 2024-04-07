@@ -6,14 +6,19 @@ from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny,IsAuthenticated
 from django.http import HttpResponse
 from referral.models import *
 from general.decorators import group_required
-from general.functions import generate_serializer_errors, get_auto_id
+from general.functions import generate_serializer_errors,randomnumber,check_username
 from api.v1.referral.serializers import *
 from django.conf import settings
+
 from django.template.loader import get_template
+from django.contrib.auth.models import User,Group
+import requests
+import json
+
 
 
 @api_view(['POST'])
@@ -31,7 +36,6 @@ def register_user(request):
             if not Register.objects.filter(name=name,email=email, is_deleted=False).exists():
 
                 reg = Register.objects.create(
-                    auto_id = get_auto_id(Register),
                     name = name,
                     email = email,
                     password = password,
@@ -57,9 +61,10 @@ def register_user(request):
                 reg.username = username
                 reg.password = password                  
                 reg.save()
-                transaction.commit()
                 student_group, created = Group.objects.get_or_create(name='registered_user')
                 student_group.user_set.add(user)
+                transaction.commit()
+
                 protocol = "http://"
                 if request.is_secure():
                     protocol = "https://"
@@ -81,6 +86,16 @@ def register_user(request):
 
                         }
                     } 
+                    
+                else:
+                    response_data = {
+                        "StatusCode": 6001,
+                        "data": {
+                            "title": "Failed",
+                            "Message": "Failed to retrieve access token after update."
+                        }
+                    }
+                     
                 
             else:
                 response_data = {
@@ -114,3 +129,90 @@ def register_user(request):
 
     return Response({'app_data': response_data}, status=status.HTTP_200_OK)
 
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_details(request,pk):
+    try:
+        
+        if (reg := Register.objects.filter(pk=pk,is_deleted=False)).exists():
+
+            serialized_data = ListRegisterSerializer(
+                reg,
+                context = {
+                    "request" : request
+                },
+                many = True
+            ).data
+
+            response_data = {
+                "StatusCode" : 6000,
+                "data" : serialized_data
+            }
+        else:
+            response_data = {
+                "StatusCode" : 6001,
+                "data" : []
+            }
+
+    except Exception as e:
+        transaction.rollback()
+        errType = e.__class__.__name__
+        errors = {
+            errType: traceback.format_exc()
+        }
+        response_data = {
+            "status": 0,
+            "api": request.get_full_path(),
+            "request": request.data,
+            "message": str(e),
+            "response": errors
+        }
+
+    return Response({'app_data': response_data}, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def view_referral_data(request,pk):
+    try:
+        user=Register.objects.get(pk=pk,is_deleted=False)
+        ref_code=user.referral_code
+        if (reg := Register.objects.filter(referral_code=ref_code,is_deleted=False)).exists():
+
+            serialized_data = ListRegisterSerializer(
+                reg,
+                context = {
+                    "request" : request
+                },
+                many = True
+            ).data
+
+            response_data = {
+                "StatusCode" : 6000,
+                "data" : serialized_data
+            }
+        else:
+            response_data = {
+                "StatusCode" : 6001,
+                "data" : []
+            }
+
+    except Exception as e:
+        transaction.rollback()
+        errType = e.__class__.__name__
+        errors = {
+            errType: traceback.format_exc()
+        }
+        response_data = {
+            "status": 0,
+            "api": request.get_full_path(),
+            "request": request.data,
+            "message": str(e),
+            "response": errors
+        }
+
+    return Response({'app_data': response_data}, status=status.HTTP_200_OK)
